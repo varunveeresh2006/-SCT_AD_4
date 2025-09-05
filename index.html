@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner & Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header-title">QR Code Scanner & Generator</h1>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="scanner">
+                <i class="fas fa-camera"></i>
+                <span>Scanner</span>
+            </button>
+            <button class="tab-btn" data-tab="generator">
+                <i class="fas fa-qrcode"></i>
+                <span>Generator</span>
+            </button>
+        </nav>
+
+        <!-- Scanner Tab -->
+        <div id="scanner-tab" class="tab-content active">
+            <div class="scanner-container">
+                <div class="scanner-header">
+                    <h2>QR Code Scanner</h2>
+                    <p id="scanner-status">Click "Start Camera" to begin scanning</p>
+                </div>
+
+                <div class="camera-container">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    
+                    <div class="scanner-overlay">
+                        <div class="scanner-frame">
+                            <div class="corner top-left"></div>
+                            <div class="corner top-right"></div>
+                            <div class="corner bottom-left"></div>
+                            <div class="corner bottom-right"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="scanner-controls">
+                    <button id="start-camera" class="btn btn-primary">
+                        <i class="fas fa-camera"></i>
+                        Start Camera
+                    </button>
+                    <button id="stop-camera" class="btn btn-secondary" style="display: none;">
+                        <i class="fas fa-stop"></i>
+                        Stop Camera
+                    </button>
+                </div>
+
+                <div id="scan-result" class="result-container" style="display: none;">
+                    <h3>Scanned Content:</h3>
+                    <div class="result-text" id="scanned-text"></div>
+                    <div class="action-buttons">
+                        <button id="copy-result" class="action-btn">
+                            <i class="fas fa-copy"></i>
+                            Copy
+                        </button>
+                        <button id="open-link" class="action-btn" style="display: none;">
+                            <i class="fas fa-external-link-alt"></i>
+                            Open Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generator Tab -->
+        <div id="generator-tab" class="tab-content">
+            <div class="generator-container">
+                <div class="generator-header">
+                    <h2>QR Code Generator</h2>
+                    <p>Enter text to generate your QR code</p>
+                </div>
+
+                <div class="input-section">
+                    <label for="qr-input">Enter your text:</label>
+                    <textarea id="qr-input" placeholder="Enter URL, text, email, phone number..." rows="4"></textarea>
+                    
+                    <div class="quick-options">
+                        <p>Quick options:</p>
+                        <div class="quick-buttons">
+                            <button class="quick-btn" data-text="https://example.com">Website URL</button>
+                            <button class="quick-btn" data-text="Contact: +1234567890">Phone Number</button>
+                            <button class="quick-btn" data-text="mailto:example@email.com">Email</button>
+                            <button class="quick-btn" data-text="WiFi:T:WPA;S:NetworkName;P:password;;">WiFi Info</button>
+                        </div>
+                    </div>
+
+                    <div class="generator-controls">
+                        <button id="generate-qr" class="btn btn-primary">
+                            <i class="fas fa-qrcode"></i>
+                            Generate QR Code
+                        </button>
+                        <button id="clear-qr" class="btn btn-secondary" style="display: none;">
+                            <i class="fas fa-trash"></i>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div id="qr-result" class="qr-display" style="display: none;">
+                    <h3>Your QR Code:</h3>
+                    <div class="qr-code-container">
+                        <div id="qr-code"></div>
+                    </div>
+                    <div class="qr-content">
+                        <p><strong>Content:</strong></p>
+                        <div id="qr-content-text"></div>
+                    </div>
+                    <div class="action-buttons">
+                        <button id="copy-qr-text" class="action-btn">
+                            <i class="fas fa-copy"></i>
+                            Copy Text
+                        </button>
+                        <button id="download-qr" class="action-btn">
+                            <i class="fas fa-download"></i>
+                            Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
