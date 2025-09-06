@@ -3,36 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Code Scanner & Generator</title>
-
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4facfe">
-
-  <!-- CSS -->
+  <title>QR Scanner & Generator</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>📷 QR Code Scanner & Generator</h1>
+    <h1>QR Code Scanner & Generator</h1>
 
-    <!-- Scanner -->
-    <div id="reader"></div>
-    <p><strong>Scanned Result:</strong></p>
-    <span id="result">None</span>
+    <!-- Scanner Section -->
+    <section class="card">
+      <h2>📷 Scan QR Code</h2>
+      <div id="reader"></div>
+      <p id="scan-result"></p>
+    </section>
 
-    <!-- Generator -->
-    <h2>Create a QR Code</h2>
-    <input type="text" id="qrText" placeholder="Enter text or URL here...">
-    <button onclick="generateQRCode()">Generate QR Code</button>
-    <div id="qrcode"></div>
+    <!-- Generator Section -->
+    <section class="card">
+      <h2>✍ Generate QR Code</h2>
+      <div class="input-group">
+        <input id="qr-text" type="text" placeholder="Enter text or URL">
+        <button onclick="generateQR()">Generate</button>
+      </div>
+      <div id="qrcode"></div>
+    </section>
   </div>
 
-  <!-- Libraries -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-  <!-- App Script -->
   <script src="script.js"></script>
 </body>
 </html>
