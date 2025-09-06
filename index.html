@@ -4,32 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QR Scanner & Generator</title>
-  <link rel="stylesheet" href="style.css">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body>
-  <div class="container">
-    <h1>QR Code Scanner & Generator</h1>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+  <div class="bg-white shadow-2xl rounded-2xl p-6 w-full max-w-3xl">
+    <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">QR Code Scanner & Generator</h1>
 
     <!-- Scanner Section -->
-    <section class="card">
-      <h2>📷 Scan QR Code</h2>
-      <div id="reader"></div>
-      <p id="scan-result"></p>
-    </section>
+    <div class="mb-8">
+      <h2 class="text-lg font-semibold text-gray-700 mb-3">📷 Scan QR Code</h2>
+      <div id="reader" class="w-full rounded-xl overflow-hidden shadow-md"></div>
+      <p id="scan-result" class="mt-4 text-green-600 font-medium text-center"></p>
+    </div>
+
+    <hr class="my-6">
 
     <!-- Generator Section -->
-    <section class="card">
-      <h2>✍ Generate QR Code</h2>
-      <div class="input-group">
-        <input id="qr-text" type="text" placeholder="Enter text or URL">
-        <button onclick="generateQR()">Generate</button>
+    <div>
+      <h2 class="text-lg font-semibold text-gray-700 mb-3">✍ Generate QR Code</h2>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <input id="qr-text" type="text" placeholder="Enter text or URL"
+               class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none">
+        <button onclick="generateQR()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+          Generate
+        </button>
       </div>
-      <div id="qrcode"></div>
-    </section>
+      <div id="qrcode" class="mt-5 flex justify-center"></div>
+    </div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    // QR Scanner
+    function onScanSuccess(decodedText) {
+      document.getElementById("scan-result").innerText = "Scanned Result: " + decodedText;
+    }
+
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader", { fps: 10, qrbox: 250 }
+    );
+    html5QrcodeScanner.render(onScanSuccess);
+
+    // QR Generator
+    function generateQR() {
+      let qrContainer = document.getElementById("qrcode");
+      qrContainer.innerHTML = "";
+      let text = document.getElementById("qr-text").value;
+      if (text.trim() === "") {
+        alert("Please enter text or URL");
+        return;
+      }
+      new QRCode(qrContainer, {
+        text: text,
+        width: 200,
+        height: 200
+      });
+    }
+  </script>
 </body>
 </html>
