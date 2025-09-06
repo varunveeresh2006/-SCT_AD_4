@@ -1,363 +1,94 @@
-// Global variables
-let currentStream = null;
-let isScanning = false;
-let qrHistory = JSON.parse(localStorage.getItem('qrHistory')) || [];
-
-// DOM elements
-const tabButtons = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const startScanBtn = document.getElementById('start-scan');
-const stopScanBtn = document.getElementById('stop-scan');
-const scanResult = document.getElementById('scan-result');
-const scannedText = document.getElementById('scanned-text');
-const copyScanBtn = document.getElementById('copy-scanned');
-const scanError = document.getElementById('scan-error');
-const errorText = document.getElementById('error-text');
-const qrTextInput = document.getElementById('qr-text');
-const generateBtn = document.getElementById('generate-qr');
-const qrDisplay = document.getElementById('qr-display');
-const qrCanvas = document.getElementById('qr-canvas');
-const copyTextBtn = document.getElementById('copy-text');
-const downloadBtn = document.getElementById('download-qr');
-const historyList = document.getElementById('history-list');
-const toast = document.getElementById('toast');
-const toastMessage = document.getElementById('toast-message');
-
-// Initialize app
-document.addEventListener('DOMContentLoaded', function() {
-    setupEventListeners();
-    renderHistory();
-});
-
-// Event listeners
-function setupEventListeners() {
-    // Tab navigation
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => switchTab(button.dataset.tab));
-    });
-
-    // Scanner controls
-    startScanBtn.addEventListener('click', startScanning);
-    stopScanBtn.addEventListener('click', stopScanning);
-    copyScanBtn.addEventListener('click', () => copyToClipboard(scannedText.textContent));
-
-    // Generator controls
-    generateBtn.addEventListener('click', generateQRCode);
-    copyTextBtn.addEventListener('click', () => copyToClipboard(qrTextInput.value));
-    downloadBtn.addEventListener('click', downloadQRCode);
-
-    // Input validation
-    qrTextInput.addEventListener('input', () => {
-        generateBtn.disabled = !qrTextInput.value.trim();
-    });
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
-// Tab switching
-function switchTab(tabName) {
-    // Update tab buttons
-    tabButtons.forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
-    // Update tab content
-    tabContents.forEach(content => content.classList.remove('active'));
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-
-    // Stop scanning when switching away from scan tab
-    if (tabName !== 'scan' && isScanning) {
-        stopScanning();
-    }
-
-    // Refresh history when switching to history tab
-    if (tabName === 'history') {
-        renderHistory();
-    }
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
 }
 
-// Scanner functions
-async function startScanning() {
-    try {
-        currentStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
-        });
-        
-        video.srcObject = currentStream;
-        video.style.display = 'block';
-        
-        startScanBtn.style.display = 'none';
-        stopScanBtn.style.display = 'inline-flex';
-        
-        hideResults();
-        isScanning = true;
-        
-        // Start QR code detection
-        video.addEventListener('loadedmetadata', scanForQRCode);
-        
-    } catch (error) {
-        showError('Camera access denied or not available. Please check your permissions.');
-        console.error('Camera error:', error);
-    }
+.container {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  padding: 30px;
+  max-width: 450px;
+  width: 100%;
+  text-align: center;
+  animation: fadeIn 0.5s ease-in-out;
 }
 
-function stopScanning() {
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-    }
-    
-    video.style.display = 'none';
-    video.srcObject = null;
-    
-    startScanBtn.style.display = 'inline-flex';
-    stopScanBtn.style.display = 'none';
-    
-    isScanning = false;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-async function scanForQRCode() {
-    if (!isScanning) return;
-
-    const context = canvas.getContext('2d');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    try {
-        // Check if BarcodeDetector is supported
-        if ('BarcodeDetector' in window) {
-            const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-            const barcodes = await barcodeDetector.detect(canvas);
-            
-            if (barcodes.length > 0) {
-                const qrContent = barcodes[0].rawValue;
-                handleScanSuccess(qrContent);
-                return;
-            }
-        } else {
-            // Fallback: Try to detect QR codes using image data analysis
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            const qrContent = detectQRCodeFallback(imageData);
-            
-            if (qrContent) {
-                handleScanSuccess(qrContent);
-                return;
-            }
-        }
-    } catch (error) {
-        console.error('QR scanning error:', error);
-    }
-
-    // Continue scanning
-    if (isScanning) {
-        requestAnimationFrame(scanForQRCode);
-    }
+h1 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #333;
 }
 
-function detectQRCodeFallback(imageData) {
-    // This is a simplified fallback - in a real app, you'd use a proper QR code library
-    // For demo purposes, we'll return null (no detection)
-    return null;
+h2 {
+  font-size: 20px;
+  margin: 20px 0 10px;
+  color: #555;
 }
 
-function handleScanSuccess(content) {
-    scannedText.textContent = content;
-    scanResult.style.display = 'block';
-    addToHistory(content, 'scanned');
-    stopScanning();
+button {
+  margin: 12px 0;
+  padding: 12px 20px;
+  border: none;
+  background: #4facfe;
+  color: white;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.3s ease;
 }
 
-// Generator functions
-function generateQRCode() {
-    const text = qrTextInput.value.trim();
-    if (!text) return;
-
-    const size = 200;
-    qrCanvas.width = size;
-    qrCanvas.height = size;
-
-    const ctx = qrCanvas.getContext('2d');
-    
-    // Clear canvas
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
-    ctx.fillStyle = '#000000';
-
-    // Generate QR pattern based on text
-    const modules = 21; // QR version 1
-    const moduleSize = size / modules;
-    const pattern = generateQRPattern(text, modules);
-
-    // Draw QR code
-    for (let row = 0; row < modules; row++) {
-        for (let col = 0; col < modules; col++) {
-            if (pattern[row][col]) {
-                ctx.fillRect(
-                    col * moduleSize,
-                    row * moduleSize,
-                    moduleSize,
-                    moduleSize
-                );
-            }
-        }
-    }
-
-    qrDisplay.style.display = 'block';
-    addToHistory(text, 'generated');
+button:hover {
+  background: #357edd;
 }
 
-function generateQRPattern(text, size) {
-    const pattern = [];
-    const hash = hashString(text);
-    let seed = hash;
-    
-    // Initialize pattern
-    for (let i = 0; i < size; i++) {
-        pattern[i] = [];
-        for (let j = 0; j < size; j++) {
-            seed = (seed * 9301 + 49297) % 233280;
-            pattern[i][j] = (seed / 233280) > 0.5;
-        }
-    }
-
-    // Add finder patterns (corner squares)
-    addFinderPattern(pattern, 0, 0);
-    addFinderPattern(pattern, 0, size - 7);
-    addFinderPattern(pattern, size - 7, 0);
-
-    // Add timing patterns
-    for (let i = 8; i < size - 8; i++) {
-        pattern[6][i] = i % 2 === 0;
-        pattern[i][6] = i % 2 === 0;
-    }
-
-    return pattern;
+input {
+  padding: 12px;
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  font-size: 15px;
 }
 
-function addFinderPattern(pattern, startRow, startCol) {
-    const finderPattern = [
-        [1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,1],
-        [1,0,1,1,1,0,1],
-        [1,0,1,1,1,0,1],
-        [1,0,1,1,1,0,1],
-        [1,0,0,0,0,0,1],
-        [1,1,1,1,1,1,1]
-    ];
-
-    for (let i = 0; i < 7; i++) {
-        for (let j = 0; j < 7; j++) {
-            if (startRow + i < pattern.length && startCol + j < pattern[0].length) {
-                pattern[startRow + i][startCol + j] = finderPattern[i][j] === 1;
-            }
-        }
-    }
+#reader {
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-function hashString(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return Math.abs(hash);
+#result {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #e9f7ef;
+  color: #2e7d32;
+  font-weight: 500;
+  border-radius: 8px;
 }
 
-function downloadQRCode() {
-    const link = document.createElement('a');
-    link.download = 'qrcode.png';
-    link.href = qrCanvas.toDataURL();
-    link.click();
-}
-
-// History functions
-function addToHistory(content, type) {
-    const entry = {
-        id: Date.now().toString(),
-        content: content,
-        timestamp: new Date(),
-        type: type
-    };
-    
-    qrHistory.unshift(entry);
-    qrHistory = qrHistory.slice(0, 10); // Keep only last 10 entries
-    
-    localStorage.setItem('qrHistory', JSON.stringify(qrHistory));
-    renderHistory();
-}
-
-function renderHistory() {
-    if (qrHistory.length === 0) {
-        historyList.innerHTML = `
-            <div class="empty-state">
-                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                    <path d="M3 3v5h5"/>
-                    <path d="M12 7v5l4 2"/>
-                </svg>
-                <p>No QR codes yet</p>
-            </div>
-        `;
-        return;
-    }
-
-    historyList.innerHTML = qrHistory.map(entry => `
-        <div class="history-item">
-            <div class="history-header">
-                <span class="history-type ${entry.type}">${entry.type === 'scanned' ? 'Scanned' : 'Generated'}</span>
-                <span class="history-time">${formatDate(entry.timestamp)}</span>
-            </div>
-            <div class="history-content">${entry.content}</div>
-            <div class="history-actions">
-                <button class="btn btn-secondary btn-small" onclick="copyToClipboard('${entry.content.replace(/'/g, "\\'")}')">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                    </svg>
-                    Copy
-                </button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function formatDate(date) {
-    const d = new Date(date);
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-}
-
-// Utility functions
-async function copyToClipboard(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-        showToast('Copied to clipboard!');
-    } catch (error) {
-        console.error('Copy failed:', error);
-        showToast('Copy failed', 'error');
-    }
-}
-
-function showToast(message, type = 'success') {
-    toastMessage.textContent = message;
-    toast.classList.add('show');
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
-}
-
-function showError(message) {
-    errorText.textContent = message;
-    scanError.style.display = 'block';
-    
-    setTimeout(() => {
-        scanError.style.display = 'none';
-    }, 5000);
-}
-
-function hideResults() {
-    scanResult.style.display = 'none';
-    scanError.style.display = 'none';
+#qrcode {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  display: inline-block;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
 }
