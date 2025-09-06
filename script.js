@@ -1,309 +1,519 @@
-class QRCodeApp {
-    constructor() {
-        this.video = document.getElementById('video');
-        this.canvas = document.getElementById('canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.scanning = false;
-        this.stream = null;
-        
-        this.initializeApp();
-    }
-
-    initializeApp() {
-        this.setupTabNavigation();
-        this.setupScanner();
-        this.setupGenerator();
-    }
-
-    // Tab Navigation
-    setupTabNavigation() {
-        const tabButtons = document.querySelectorAll('.tab-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const targetTab = button.getAttribute('data-tab');
-                
-                // Remove active class from all tabs and contents
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                tabContents.forEach(content => content.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding content
-                button.classList.add('active');
-                document.getElementById(`${targetTab}-tab`).classList.add('active');
-                
-                // Stop camera when switching away from scanner
-                if (targetTab !== 'scanner' && this.stream) {
-                    this.stopCamera();
-                }
-            });
-        });
-    }
-
-    // Scanner Functionality
-    setupScanner() {
-        const startButton = document.getElementById('start-camera');
-        const stopButton = document.getElementById('stop-camera');
-        const copyButton = document.getElementById('copy-result');
-        const openLinkButton = document.getElementById('open-link');
-
-        startButton.addEventListener('click', () => this.startCamera());
-        stopButton.addEventListener('click', () => this.stopCamera());
-        copyButton.addEventListener('click', () => this.copyToClipboard());
-        openLinkButton.addEventListener('click', () => this.openLink());
-    }
-
-    async startCamera() {
-        try {
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            });
-            
-            this.video.srcObject = this.stream;
-            this.video.play();
-            
-            document.getElementById('start-camera').style.display = 'none';
-            document.getElementById('stop-camera').style.display = 'inline-flex';
-            document.getElementById('scanner-status').textContent = 'Point camera at QR code';
-            
-            this.scanning = true;
-            this.scanQRCode();
-            
-        } catch (error) {
-            console.error('Error accessing camera:', error);
-            document.getElementById('scanner-status').textContent = 'Camera access denied or not available';
-        }
-    }
-
-    stopCamera() {
-        if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
-            this.stream = null;
-        }
-        
-        this.scanning = false;
-        this.video.srcObject = null;
-        
-        document.getElementById('start-camera').style.display = 'inline-flex';
-        document.getElementById('stop-camera').style.display = 'none';
-        document.getElementById('scanner-status').textContent = 'Click "Start Camera" to begin scanning';
-    }
-
-    scanQRCode() {
-        if (!this.scanning) return;
-
-        if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
-            this.canvas.width = this.video.videoWidth;
-            this.canvas.height = this.video.videoHeight;
-            this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-            
-            const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            
-            if (code) {
-                this.handleScanResult(code.data);
-                return;
-            }
-        }
-        
-        requestAnimationFrame(() => this.scanQRCode());
-    }
-
-    handleScanResult(data) {
-        this.scanning = false;
-        document.getElementById('scanner-status').textContent = 'QR Code detected!';
-        
-        const resultContainer = document.getElementById('scan-result');
-        const scannedText = document.getElementById('scanned-text');
-        const openLinkButton = document.getElementById('open-link');
-        
-        scannedText.textContent = data;
-        resultContainer.style.display = 'block';
-        
-        // Show open link button if it's a URL
-        if (this.isValidURL(data)) {
-            openLinkButton.style.display = 'inline-flex';
-            openLinkButton.setAttribute('data-url', data);
-        } else {
-            openLinkButton.style.display = 'none';
-        }
-        
-        // Resume scanning after 3 seconds
-        setTimeout(() => {
-            if (this.stream) {
-                this.scanning = true;
-                document.getElementById('scanner-status').textContent = 'Point camera at QR code';
-                this.scanQRCode();
-            }
-        }, 3000);
-    }
-
-    copyToClipboard() {
-        const text = document.getElementById('scanned-text').textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            this.showNotification('Copied to clipboard!');
-        }).catch(() => {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            this.showNotification('Copied to clipboard!');
-        });
-    }
-
-    openLink() {
-        const url = document.getElementById('open-link').getAttribute('data-url');
-        if (url) {
-            window.open(url, '_blank');
-        }
-    }
-
-    // Generator Functionality
-    setupGenerator() {
-        const generateButton = document.getElementById('generate-qr');
-        const clearButton = document.getElementById('clear-qr');
-        const copyQRButton = document.getElementById('copy-qr-text');
-        const downloadButton = document.getElementById('download-qr');
-        const quickButtons = document.querySelectorAll('.quick-btn');
-
-        generateButton.addEventListener('click', () => this.generateQRCode());
-        clearButton.addEventListener('click', () => this.clearQRCode());
-        copyQRButton.addEventListener('click', () => this.copyQRText());
-        downloadButton.addEventListener('click', () => this.downloadQRCode());
-
-        quickButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const text = button.getAttribute('data-text');
-                document.getElementById('qr-input').value = text;
-            });
-        });
-    }
-
-    generateQRCode() {
-        const input = document.getElementById('qr-input').value.trim();
-        
-        if (!input) {
-            this.showNotification('Please enter some text to generate QR code', 'error');
-            return;
-        }
-
-        const qrContainer = document.getElementById('qr-code');
-        const resultContainer = document.getElementById('qr-result');
-        const contentText = document.getElementById('qr-content-text');
-        
-        // Clear previous QR code
-        qrContainer.innerHTML = '';
-        
-        // Generate QR code
-        QRCode.toCanvas(qrContainer, input, {
-            width: 256,
-            height: 256,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            },
-            margin: 2
-        }, (error) => {
-            if (error) {
-                console.error('Error generating QR code:', error);
-                this.showNotification('Error generating QR code', 'error');
-                return;
-            }
-            
-            contentText.textContent = input;
-            resultContainer.style.display = 'block';
-            document.getElementById('clear-qr').style.display = 'inline-flex';
-            
-            this.showNotification('QR code generated successfully!');
-        });
-    }
-
-    clearQRCode() {
-        document.getElementById('qr-input').value = '';
-        document.getElementById('qr-result').style.display = 'none';
-        document.getElementById('clear-qr').style.display = 'none';
-        document.getElementById('qr-code').innerHTML = '';
-    }
-
-    copyQRText() {
-        const text = document.getElementById('qr-content-text').textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            this.showNotification('Text copied to clipboard!');
-        }).catch(() => {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            this.showNotification('Text copied to clipboard!');
-        });
-    }
-
-    downloadQRCode() {
-        const canvas = document.querySelector('#qr-code canvas');
-        if (canvas) {
-            const link = document.createElement('a');
-            link.download = 'qrcode.png';
-            link.href = canvas.toDataURL();
-            link.click();
-            this.showNotification('QR code downloaded!');
-        }
-    }
-
-    // Utility Functions
-    isValidURL(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
-        }
-    }
-
-    showNotification(message, type = 'success') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        
-        // Style the notification
-        Object.assign(notification.style, {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            color: 'white',
-            fontWeight: '600',
-            zIndex: '1000',
-            transform: 'translateX(100%)',
-            transition: 'transform 0.3s ease',
-            backgroundColor: type === 'error' ? '#ef4444' : '#10b981'
-        });
-        
-        document.body.appendChild(notification);
-        
-        // Animate in
-        setTimeout(() => {
-            notification.style.transform = 'translateX(0)';
-        }, 100);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 300);
-        }, 3000);
-    }
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-// Initialize the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    new QRCodeApp();
-});
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  color: #333;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+/* Header Styles */
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 50px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.qr-icon {
+  width: 24px;
+  height: 24px;
+  color: white;
+}
+
+.header h1 {
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 4px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tab-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.tab-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Content Area */
+.content {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Scanner Styles */
+.scanner-container {
+  text-align: center;
+}
+
+.camera-preview {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanner-frame {
+  width: 200px;
+  height: 200px;
+  border: 2px solid white;
+  border-radius: 12px;
+  position: relative;
+}
+
+.scanner-frame::before,
+.scanner-frame::after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #4ade80;
+}
+
+.scanner-frame::before {
+  top: -3px;
+  left: -3px;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 12px;
+}
+
+.scanner-frame::after {
+  bottom: -3px;
+  right: -3px;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 12px;
+}
+
+.scanner-controls {
+  margin-bottom: 20px;
+}
+
+/* Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  min-width: 120px;
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-primary {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:hover {
+  background: #f8fafc;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #059669;
+  transform: translateY(-2px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Result Container */
+.result-container {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10b981;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.result-container h3 {
+  color: white;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.result-container p {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  word-break: break-all;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+}
+
+/* Error Container */
+.error-container {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.error-container p {
+  color: white;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Generator Styles */
+.generator-container {
+  text-align: center;
+}
+
+.input-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  color: white;
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+#qr-text {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 80px;
+  backdrop-filter: blur(10px);
+}
+
+#qr-text::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+#qr-text:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.qr-display {
+  margin-top: 24px;
+}
+
+#qr-canvas {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 20px;
+}
+
+.qr-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* History Styles */
+.history-container h3 {
+  color: white;
+  margin-bottom: 20px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.history-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.history-header {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-type {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.history-type.scanned {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.history-type.generated {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.history-time {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
+.history-content {
+  color: white;
+  font-size: 14px;
+  word-break: break-all;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: auto;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+
+/* Toast Notification */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #10b981;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+.toast.show {
+  transform: translateX(0);
+}
+
+.toast-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .container {
+    padding: 16px;
+  }
+
+  .content {
+    padding: 20px;
+  }
+
+  .qr-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .history-actions {
+    justify-content: center;
+  }
+}
+
+/* Animations */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.scanner-frame {
+  animation: pulse 2s infinite;
+}
+
+/* Scrollbar Styling */
+.history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
